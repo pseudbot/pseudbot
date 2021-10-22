@@ -119,5 +119,8 @@ crud/
 # Pseudbot API keys
 pseud.json
 
+# Pseudbot JSON dumps
+*.dump.json
+
 # The editor that people seem to like for some reason
 .vscode

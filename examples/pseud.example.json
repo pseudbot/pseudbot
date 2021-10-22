@@ -1,0 +1,7 @@
+{
+  "consumer": "key goes here",
+  "consumer_secret": "key goes here",
+  "bearer_token": "key goes here",
+  "tok": "key goes here",
+  "tok_secret": "key goes here"
+}
