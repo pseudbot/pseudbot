@@ -4,6 +4,8 @@ import json as j
 import tweepy as t
 import typing
 
+from .pastas import PASTAS
+
 
 def parse_args(args: [str], name: str):
     parser = argparse.ArgumentParser(prog=name)
