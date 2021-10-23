@@ -122,5 +122,8 @@ pseud.json
 # Pseudbot JSON dumps
 *.dump.json
 
+# Pseudbot last id file
+last_id
+
 # The editor that people seem to like for some reason
 .vscode
