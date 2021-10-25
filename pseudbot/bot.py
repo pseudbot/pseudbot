@@ -29,6 +29,10 @@ def parse_args(args: [str], name: str):
     return parser.parse_args(args=args)
 
 
+def get_timestamp_s() -> str:
+    return "🕑" + str(int(time()))
+
+
 class PseudBot:
     last_stat = None
 
@@ -59,8 +63,10 @@ class PseudBot:
             )
         )
 
-    def jdump(self, itms, echo: bool = False):
-        dfname = str(inspect.stack()[1][3]) + ".dump.json"
+    def _jdump(self, itms, echo: bool = False):
+        dfname = (
+            str(inspect.stack()[1][3]) + "." + str(int(time())) + ".dump.json"
+        )
         df = open(dfname, mode="w")
 
         pretty = j.dumps(itms, sort_keys=True, indent=2)
@@ -76,9 +82,9 @@ class PseudBot:
         for tweet in home_tl:
             jsons.append(tweet._json)
 
-        self.jdump(jsons, echo=True)
+        self._jdump(jsons, echo=True)
 
-    def tweet_pasta(self, id_reply_to: int, pasta: [str]):
+    def _tweet_pasta(self, id_reply_to: int, pasta: [str]):
         """
         In this house we stan recursion.
         """
@@ -91,32 +97,49 @@ class PseudBot:
             self._log_tweet(noodle, self.last_stat)
         except Forbidden:
             return _stat
-        # print(status)
         if len(pasta) > 0:
             pasta[0] = "@" + self.last_stat.user.screen_name + " " + pasta[0]
             sleep(2)
-            return self.tweet_pasta(self.last_stat.id, pasta)
+            return self._tweet_pasta(self.last_stat.id, pasta)
         else:
             return self.last_stat
 
     def hello(self):
-        self.jdump(
-            self.tapi.update_status(
-                # str(time()) + ": pseudbot is still under construction..."
-                str(time())
-                + ": Hello pseudbot"
-            )._json
-        )
-
-    def reply_test(self):
-        pasta = random.choice(PASTAS)
-        pasta[0] = "@bustin4201 " + pasta[0]
-        print(self.tweet_pasta(1451688288591417348, pasta))
+        hello_msg = get_timestamp_s() + ": Hello pseudbot"
+        hello_stat = self.tapi.update_status(hello_msg)
+        self._jdump(hello_stat._json)
+        self._log_tweet(hello_msg, hello_stat)
 
     def write_last_id(self):
         idw = open("last_id", mode="w")
         idw.write(str(self.last_id))
         idw.close()
+
+    def dump_all_mentions(self):
+        self.dump_mentions(start_id=1)
+
+    def dump_mentions(self, start_id: int = None):
+        if start_id is None:
+            start_id = self.last_id
+
+        tweets_j = []
+        for tweet in t.Cursor(
+            self.tapi.mentions_timeline, since_id=start_id
+        ).items():
+            if tweet.user.screen_name == self.screen_name:
+                continue
+
+            print(
+                "Mentioned by {} in: {}".format(
+                    tweet.user.screen_name, self.url_prefix + str(tweet.id)
+                )
+            )
+            tweets_j.append(tweet._json)
+
+            self.last_id = max(tweet.id, self.last_id)
+            sleep(2)
+
+        self._jdump(tweets_j)
 
     def reply_mentions(self):
         for tweet in t.Cursor(
@@ -133,12 +156,12 @@ class PseudBot:
 
             if tweet.in_reply_to_status_id is not None:
                 pasta[0] = "@" + tweet.in_reply_to_screen_name + " " + pasta[0]
-                self.last_stat = self.tweet_pasta(
+                self.last_stat = self._tweet_pasta(
                     tweet.in_reply_to_status_id, pasta
                 )
             else:
                 pasta[0] = "@" + tweet.user.screen_name + " " + pasta[0]
-                self.last_stat = self.tweet_pasta(tweet.id, pasta)
+                self.last_stat = self._tweet_pasta(tweet.id, pasta)
 
             if self.last_stat is not None:
                 print("Finished chain with {}".format(self.last_stat.id))
@@ -162,7 +185,9 @@ class PseudBot:
                     sleep(cooldown)
         except KeyboardInterrupt:
             print()
-            shutdown_msg = "Shut down for maintenance at " + str(int(time()))
+            shutdown_msg = (
+                "Shut down for maintenance at " + str(int(time())) + " 👋"
+            )
             self._log_tweet(shutdown_msg, self.tapi.update_status(shutdown_msg))
 
 
@@ -178,6 +203,7 @@ def main(args: [str], name: str) -> int:
     else:
         pb = PseudBot(
             j.loads(opts.cfg_json.read()),
-            custom_welcome='Running method: "{}"'.format(opts.action),
+            custom_welcome=get_timestamp_s()
+            + ': Running method: "{}"'.format(opts.action),
         )
     callm(pb, opts.action)
