@@ -2,6 +2,7 @@ import argparse
 import inspect
 import json as j
 import random
+from sys import stderr
 from time import sleep, time
 import tweepy as t
 from tweepy.errors import Forbidden, TooManyRequests
@@ -14,16 +15,25 @@ def parse_args(args: [str], name: str):
     parser = argparse.ArgumentParser(prog=name)
 
     parser.add_argument(
-        "-a",
-        "--action",
+        "-i",
+        "--reply-to-id",
+        type=int,
+        default=None,
+        help="ID to reply to, "
+        + 'has no affect unless "action" manually directs replies.',
+    )
+    parser.add_argument(
+        "-c",
+        "--cfg-json",
+        type=argparse.FileType("r"),
+        default="pseud.json",
+        help="JSON file with Twitter secrets",
+    )
+    parser.add_argument(
+        "action",
         type=str,
         default="timeline",
         help="Method to call",
-    )
-    parser.add_argument(
-        "cfg_json",
-        type=argparse.FileType("r"),
-        help="JSON file with Twitter secrets",
     )
 
     return parser.parse_args(args=args)
@@ -36,7 +46,9 @@ def get_timestamp_s() -> str:
 class PseudBot:
     last_stat = None
 
-    def __init__(self, tcfg: dict, custom_welcome: str = None):
+    def __init__(
+        self, tcfg: dict, custom_welcome: str = None, last_id: int = None
+    ):
         tauth = t.OAuthHandler(tcfg["consumer"], tcfg["consumer_secret"])
         tauth.set_access_token(tcfg["tok"], tcfg["tok_secret"])
         self.tapi = t.API(tauth)
@@ -51,17 +63,16 @@ class PseudBot:
         self.url_prefix = "https://twitter.com/" + self.screen_name + "/status/"
         self._log_tweet(welcome_tweet, self.wstatus)
 
-        idr = open("last_id", mode="r")
-        self.last_id = int(idr.read())
-        idr.close()
-        sleep(0.5)
+        if last_id is None:
+            idr = open("last_id", mode="r")
+            self.last_id = int(idr.read())
+            idr.close()
+            sleep(0.5)
+        else:
+            self.last_id = last_id
 
     def _log_tweet(self, msg, tstat) -> None:
-        print(
-            '[INFO]: Tweeted "{}" ({})'.format(
-                msg, self.url_prefix + str(tstat.id)
-            )
-        )
+        print('[TWEET]: "{}" ({})'.format(msg, self.url_prefix + str(tstat.id)))
 
     def _jdump(self, itms, echo: bool = False):
         dfname = (
@@ -130,7 +141,7 @@ class PseudBot:
                 continue
 
             print(
-                "Mentioned by {} in: {}".format(
+                "Mentioned by @{} in: {}".format(
                     tweet.user.screen_name, self.url_prefix + str(tweet.id)
                 )
             )
@@ -141,6 +152,44 @@ class PseudBot:
 
         self._jdump(tweets_j)
 
+    def pasta_tweet(self):
+        pasta = []
+        while len(pasta) < 1:
+            pasta = random.choice(PASTAS)
+
+        print("[INFO]: Replying to {}...".format(self.last_id))
+        tweets = self.tapi.lookup_statuses([self.last_id])
+        for tweet in tweets:
+            self._send_pasta_chain(tweet)
+
+    def _send_pasta_chain(self, tweet):
+        pasta = []
+        while len(pasta) < 1:
+            pasta = random.choice(PASTAS)
+
+        if tweet.in_reply_to_screen_name is not None:
+            if tweet.in_reply_to_screen_name != self.screen_name:
+                parent_name = tweet.in_reply_to_screen_name
+            else:
+                parent_name = None
+                print(
+                    "[INFO]: Replying to {}'s mention ".format(
+                        tweet.user.screen_name
+                    )
+                    + "instead of replying to myself..."
+                )
+        else:
+            parent_name = None
+
+        if tweet.in_reply_to_status_id is not None and parent_name is not None:
+            pasta[0] = "@" + tweet.in_reply_to_screen_name + " " + pasta[0]
+            self.last_stat = self._tweet_pasta(
+                tweet.in_reply_to_status_id, pasta
+            )
+        else:
+            pasta[0] = "@" + tweet.user.screen_name + " " + pasta[0]
+            self.last_stat = self._tweet_pasta(tweet.id, pasta)
+
     def reply_mentions(self):
         for tweet in t.Cursor(
             self.tapi.mentions_timeline, since_id=self.last_id
@@ -150,18 +199,7 @@ class PseudBot:
 
             self.last_id = max(tweet.id, self.last_id)
 
-            pasta = []
-            while len(pasta) < 1:
-                pasta = random.choice(PASTAS)
-
-            if tweet.in_reply_to_status_id is not None:
-                pasta[0] = "@" + tweet.in_reply_to_screen_name + " " + pasta[0]
-                self.last_stat = self._tweet_pasta(
-                    tweet.in_reply_to_status_id, pasta
-                )
-            else:
-                pasta[0] = "@" + tweet.user.screen_name + " " + pasta[0]
-                self.last_stat = self._tweet_pasta(tweet.id, pasta)
+            self._send_pasta_chain(tweet)
 
             if self.last_stat is not None:
                 print("Finished chain with {}".format(self.last_stat.id))
@@ -200,6 +238,17 @@ def main(args: [str], name: str) -> int:
 
     if opts.action == "run_bot":
         pb = PseudBot(j.loads(opts.cfg_json.read()))
+    elif opts.action in ("pasta_tweet"):
+        if opts.reply_to_id is not None:
+            pb = PseudBot(
+                j.loads(opts.cfg_json.read()),
+                custom_welcome=get_timestamp_s()
+                + ': Running method: "{}"'.format(opts.action),
+                last_id=opts.reply_to_id,
+            )
+        else:
+            print("[ERROR]:  Must specify tweet ID to reply to!", file=stderr)
+            exit(1)
     else:
         pb = PseudBot(
             j.loads(opts.cfg_json.read()),
