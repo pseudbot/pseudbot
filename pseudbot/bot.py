@@ -152,6 +152,14 @@ class PseudBot:
 
         self._jdump(tweets_j)
 
+    def dump_tweet(self):
+        tweets = self.tapi.lookup_statuses([self.last_id])
+        jtweets = []
+        for tweet in tweets:
+            jtweets.append(tweet._json)
+
+        self._jdump(jtweets)
+
     def pasta_tweet(self):
         pasta = []
         while len(pasta) < 1:
@@ -238,7 +246,7 @@ def main(args: [str], name: str) -> int:
 
     if opts.action == "run_bot":
         pb = PseudBot(j.loads(opts.cfg_json.read()))
-    elif opts.action in ("pasta_tweet"):
+    elif opts.action in ("pasta_tweet", "dump_tweet"):
         if opts.reply_to_id is not None:
             pb = PseudBot(
                 j.loads(opts.cfg_json.read()),
