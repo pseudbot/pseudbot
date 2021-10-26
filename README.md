@@ -19,18 +19,19 @@
 </p>
 
 <p align="center">
-  *A friendly bot* 🤖*created by Rick Sanchez* 🧪 *from dimension C-137* 🌎*.*
+  <i>A friendly bot</i> 🤖<i>created by Rick Sanchez</i> 🧪 <i>from dimension C-137</i> 🌎<i>.</i>
 </p>
 
-📣 Mention it in a 🗐 thread 🪡🧵 and it'll 🗨 reply 🗣 to the 🚸 parent
-🗮 tweet 🕊 with a Rick 🧠 and Morty 😜 quote 💯 in two minutes 🕓 or
-less (if it's online 🖧).
+📣 Mention it in a 🗐 thread <!--this emoji is too spicy for GitHub 🪡-->
+🧵 and it'll 🗨 reply 🗣 to the 🚸 parent 🗮 tweet 🕊 with a
+Rick 🧠 and Morty 😜 quote 💯 in two minutes 🕓 or less (if it's
+online 🖧).
 
 It picks up right where it left off in its mentions when it reboots ♻.
 
-> **"***As a reflection of my true and honest nihilistic outlook,<br>we're building a machine;<br>we're taking a wrench to the discourse!<br>Metaphorical cocks in the machine, if you will.***"**
+> <b>"<i>As a reflection of my true and honest nihilistic outlook,<br>we're building a machine;<br>we're taking a wrench to the discourse!<br>Metaphorical cocks in the machine, if you will.</i>"</b>
 
-⚞***R&M♾100Y!***⚟
+⚞<i><b>R&M♾100Y!</i></b>⚟
 
 ## Installation
 The sections under here that follow are the current installation steps.
