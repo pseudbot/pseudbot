@@ -9,6 +9,9 @@ reinstall:
 	$(MAKE) clean
 	$(MAKE) install
 
+readme-preview:
+	pandoc README.md -s -c img/pub.css -o README.html
+
 format:
 	black -v -l 80 pseudbot/*
 	black -v -l 80 scripts/*

@@ -125,5 +125,8 @@ pseud.json
 # Pseudbot last id file
 last_id
 
+# Pandoc README.md preview
+README.html
+
 # The editor that people seem to like for some reason
 .vscode
