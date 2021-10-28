@@ -1,0 +1,2 @@
+class PseudBotNoTargetScreenName(Exception):
+    pass

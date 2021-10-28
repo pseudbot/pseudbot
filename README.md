@@ -1,6 +1,10 @@
 <p align="center">
   <img alt="pseudbot logo" src="./img/pseudbot-icon-1000.png" width=223 height=223>
-  <h1 align="center">Pseudbot</h1>
+  <h1 align="center">Pseudbot
+    <a href="https://twitter.com/pseudbot">
+      <img alt="Live Demo" src="./img/live-demo-badge.svg">
+    </a>
+  </h1>
 </p>
 
 <p align="center">
@@ -170,3 +174,68 @@ Finished chain with 1452754226820571148
 
 The next time you restart your bot, it will resume where it left off using the
 `last_id` file.
+
+## Getting help
+### Basic help
+Pseudbot has a basic help that can be called with `-h`:
+```
+$ pseudbot -h
+usage: /home/anon/src/pseudbot/.venv/bin/pseudbot [-h] [-i REPLY_TO_ID] [-s SCREEN_NAME]
+                                                  [-c CFG_JSON] [-p PROXY_URL]
+                                                  action
+
+positional arguments:
+  action                Method to call. Use list_actions to see more information about which
+                        actions are available.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i REPLY_TO_ID, --reply-to-id REPLY_TO_ID
+                        ID to reply to. Has no affect unless "action" is meant to be directed
+                        at a specific ID.
+  -s SCREEN_NAME, --screen-name SCREEN_NAME
+                        User screen name to run action on. Has no affect unless "action" is
+                        meant to be directed at a specific user's screen name
+  -c CFG_JSON, --cfg-json CFG_JSON
+                        JSON file with Twitter secrets
+  -p PROXY_URL, --proxy-url PROXY_URL
+                        Use Twitter API through a SOCKS proxy.
+```
+
+### Actions
+To get a list of actions that Pseudbot can perform, run `pseudbot` with
+`list_actions`:
+```
+$ pseudbot list_actions
+dump_all_mentions:
+        Dump all times your bot has been mentioned.
+
+dump_mentions:
+        Dump all mentions since last_id.
+        Override with -i on the command line.
+
+dump_tweet:
+        Dump the JSON data dictionary of a specific tweet.
+        If called from the CLI, requires -i to be set.
+
+hello:
+        Tweet "Hello pseudbot" with a timestamp.
+
+list_actions:
+        List actions that Pseudbot can run.
+
+pasta_tweet:
+        Insert a copy pasta in a Tweet chain manually starting from a specific
+        tweet ID.  Requires -i to be set if calling from the CLI.
+
+run_bot:
+        Start Pseudbot in its main mode: mention listener mode.
+
+timeline:
+        Get and dump your Pseudbot account's home timeline.
+
+user_timeline:
+        Get all tweets from a user's timeline.
+        Requires target_screen_name to be set
+        (set by -s if using the CLI).
+```
