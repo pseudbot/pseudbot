@@ -114,7 +114,7 @@ class PseudBot:
                 )
                 sleep(901)
 
-        jdump(tweets_j)
+        jdump(tweets_j, extra_tag=self.target_screen_name)
 
     def timeline(self):
         """
@@ -125,7 +125,7 @@ class PseudBot:
         for tweet in home_tl:
             jsons.append(tweet._json)
 
-        jdump(jsons, echo=True)
+        jdump(jsons, extra_tag=self.screen_name)
 
     def _tweet_pasta(self, id_reply_to: int, pasta: [str]):
         """
@@ -209,7 +209,7 @@ class PseudBot:
             log_t_by_sname(tweet)
             jtweets.append(tweet._json)
 
-        jdump(jtweets)
+        jdump(jtweets, extra_tag=self.last_id)
 
     def pasta_tweet(self):
         """
