@@ -12,8 +12,13 @@ def surl_prefix(screen_name: str):
     return "https://twitter.com/" + screen_name + "/status/"
 
 
-def jdump(itms, echo: bool = False):
-    dfname = str(inspect.stack()[1][3]) + "." + str(int(time())) + ".dump.json"
+def jdump(itms, echo: bool = False, extra_tag: str = None):
+    tag = "."
+    if extra_tag is not None:
+        tag = "." + str(extra_tag) + "."
+
+    dfname = str(inspect.stack()[1][3]) + tag + str(int(time())) + ".dump.json"
+    print('[INFO]: Writing JSON dump to "{}"'.format(dfname))
     df = open(dfname, mode="w")
 
     pretty = j.dumps(itms, sort_keys=True, indent=2)
