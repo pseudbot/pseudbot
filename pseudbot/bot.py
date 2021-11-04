@@ -1,4 +1,5 @@
 import random
+import re
 from sys import stderr
 from textwrap import indent
 from time import sleep, time
@@ -7,6 +8,7 @@ from tweepy.errors import Forbidden, TooManyRequests
 import typing
 
 from .exceptions import *
+from .media import MEDIA
 from .pastas import PASTAS
 from .util import get_timestamp_s, jdump, log_t_by_sname, surl_prefix
 
@@ -127,7 +129,28 @@ class PseudBot:
 
         jdump(jsons, extra_tag=self.screen_name)
 
-    def _tweet_pasta(self, id_reply_to: int, pasta: [str]):
+    def _tweet_media(
+        self, id_reply_to: int, parent_screen_name: str, media: [str] = []
+    ):
+        _stat = self.last_stat
+        try:
+            self.last_stat = self.tapi.update_status_with_media(
+                "@" + parent_screen_name,
+                in_reply_to_status_id=id_reply_to,
+                filename=media.pop(0),
+            )
+        except Forbidden:
+            return _stat
+
+        if len(media) > 0:
+            sleep(2)
+            return self._tweet_media(
+                self.last_stat.id, self.last_stat.user.screen_name, media
+            )
+        else:
+            return self.last_stat
+
+    def _tweet_pasta(self, id_reply_to: int, pasta: [str], media: [str] = []):
         """
         Recursively tweet an entire pasta, noodle by noodle::
             In this house we stan recursion.
@@ -135,16 +158,23 @@ class PseudBot:
         _stat = self.last_stat
         try:
             noodle = pasta.pop(0)
-            self.last_stat = self.tapi.update_status(
-                noodle, in_reply_to_status_id=id_reply_to
-            )
+            if len(media) > 0:
+                self.last_stat = self.tapi.update_status_with_media(
+                    noodle,
+                    in_reply_to_status_id=id_reply_to,
+                    filename=media.pop(0),
+                )
+            else:
+                self.last_stat = self.tapi.update_status(
+                    noodle, in_reply_to_status_id=id_reply_to
+                )
             self._log_tweet(noodle, self.last_stat)
         except Forbidden:
             return _stat
         if len(pasta) > 0:
             pasta[0] = "@" + self.last_stat.user.screen_name + " " + pasta[0]
             sleep(2)
-            return self._tweet_pasta(self.last_stat.id, pasta)
+            return self._tweet_pasta(self.last_stat.id, pasta, media)
         else:
             return self.last_stat
 
@@ -225,14 +255,7 @@ class PseudBot:
         for tweet in tweets:
             self._send_pasta_chain(tweet)
 
-    def _send_pasta_chain(self, tweet):
-        """
-        Send a copypasta chain.
-        """
-        pasta = []
-        while len(pasta) < 1:
-            pasta = random.choice(PASTAS)
-
+    def _get_reply_parent(self, tweet) -> (int, str):
         if tweet.in_reply_to_screen_name is not None:
             if tweet.in_reply_to_screen_name != self.screen_name:
                 parent_name = tweet.in_reply_to_screen_name
@@ -248,13 +271,63 @@ class PseudBot:
             parent_name = None
 
         if tweet.in_reply_to_status_id is not None and parent_name is not None:
-            pasta[0] = "@" + tweet.in_reply_to_screen_name + " " + pasta[0]
-            self.last_stat = self._tweet_pasta(
-                tweet.in_reply_to_status_id, pasta
-            )
+            reply_to_screen_name = tweet.in_reply_to_screen_name
+            parent_id = tweet.in_reply_to_status_id
         else:
-            pasta[0] = "@" + tweet.user.screen_name + " " + pasta[0]
-            self.last_stat = self._tweet_pasta(tweet.id, pasta)
+            reply_to_screen_name = tweet.user.screen_name
+            parent_id = tweet.id
+
+        return (parent_id, reply_to_screen_name)
+
+    def _parse_mention(self, tweet):
+        """
+        Parse commands in tweet and do something
+        """
+        words = re.split(r'[\s.;\-():"]+', tweet.text)
+        media = []
+        do_pasta = True
+
+        stupid_emoji = "🖼" + b"\xef\xb8\x8f".decode()
+        if stupid_emoji in words or "🖼" in words:
+            for i in range(len(words)):
+                if words[i] in ("🖼", stupid_emoji):
+                    try:
+                        media_category = words[i + 1]
+                        i += 1
+                    except IndexError:
+                        do_pasta = False
+                        break
+
+                    if media_category in MEDIA:
+                        media.append(random.choice(MEDIA[media_category]))
+
+            if len(media) == 0:
+                media = None
+
+        (parent_id, parent_screen_name) = self._get_reply_parent(tweet)
+
+        if do_pasta is True:
+            pasta = self._make_pasta_chain(parent_screen_name)
+            self._tweet_pasta(parent_id, pasta, media)
+        elif len(media) > 0:
+            self._tweet_media(parent_id, parent_screen_name, media)
+        else:
+            print(
+                '[WARN]: Unable to parse tweet: "{}"'.format(tweet.text),
+                file=stderr,
+            )
+
+    def _make_pasta_chain(self, parent_screen_name: str) -> [str]:
+        """
+        Send a copypasta chain.
+        """
+        pasta = []
+        while len(pasta) < 1:
+            pasta = random.choice(PASTAS)
+
+        pasta[0] = "@" + parent_screen_name + " " + pasta[0]
+
+        return pasta
 
     def _reply_mentions(self):
         """
@@ -269,7 +342,7 @@ class PseudBot:
 
             self.last_id = max(tweet.id, self.last_id)
 
-            self._send_pasta_chain(tweet)
+            self._parse_mention(tweet)
 
             if self.last_stat is not None:
                 print("Finished chain with {}".format(self.last_stat.id))

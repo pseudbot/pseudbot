@@ -122,6 +122,9 @@ pseud.json
 # Pseudbot JSON dumps
 *.dump.json
 
+# Pseudbot test media
+media/*
+
 # Pseudbot last id file
 last_id
 
