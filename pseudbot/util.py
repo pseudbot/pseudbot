@@ -1,5 +1,7 @@
 import inspect
 import json as j
+from os.path import basename
+import requests
 from time import time
 import typing
 
@@ -37,3 +39,21 @@ def log_t_by_sname(tweet):
             surl_prefix(tweet.user.screen_name) + str(tweet.id),
         )
     )
+
+
+def download_tweet_media(tweet: dict):
+    if "extended_entities" in tweet:
+        try:
+            media = tweet["extended_entities"]["media"]
+        except KeyError:
+            return
+
+        for item in media:
+            dl_url = item["media_url_https"]
+            r = requests.get(dl_url, stream=True)
+            if r.status_code == 200:
+                filename = basename(dl_url)
+                print('[MEDIA]: Saving media to "{}"'.format(filename))
+                with open(filename, mode="wb") as f:
+                    for chunk in r.iter_content(1024):
+                        f.write(chunk)

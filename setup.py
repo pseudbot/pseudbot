@@ -9,7 +9,7 @@ except ImportError:
 # don't care, so I do this:
 pipmain(["install", "-r", "requirements.txt"])
 
-scripts = ["scripts/pseudbot"]
+scripts = ["scripts/pseudbot", "scripts/fetch-media"]
 
 setup(
     name="pseudbot",
