@@ -20,6 +20,12 @@ def parse_args(args: [str], name: str):
         + "ID.",
     )
     parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Run Pseudbot in debug mode.",
+    )
+    parser.add_argument(
         "-s",
         "--screen-name",
         type=str,
@@ -66,9 +72,9 @@ def main(args: [str], name: str) -> int:
     tcfg = j.loads(opts.cfg_json.read())
 
     if opts.action == "run_bot":
-        pb = PseudBot(tcfg=tcfg, proxy_url=opts.proxy_url)
+        pb = PseudBot(tcfg=tcfg, proxy_url=opts.proxy_url, debug=opts.debug)
     elif opts.action == "list_actions":
-        pb = PseudBot(tcfg=tcfg, quiet=True)
+        pb = PseudBot(tcfg=tcfg, quiet=True, debug=opts.debug)
     elif opts.action in ("pasta_tweet", "dump_tweet"):
         if opts.reply_to_id is not None:
             pb = PseudBot(
@@ -76,6 +82,7 @@ def main(args: [str], name: str) -> int:
                 custom_welcome=custom_welcome,
                 last_id=opts.reply_to_id,
                 proxy_url=opts.proxy_url,
+                debug=opts.debug,
             )
         else:
             print(
@@ -91,6 +98,7 @@ def main(args: [str], name: str) -> int:
                 custom_welcome=custom_welcome,
                 target_screen_name=opts.screen_name,
                 proxy_url=opts.proxy_url,
+                debug=opts.debug,
             )
         else:
             print(
@@ -103,5 +111,6 @@ def main(args: [str], name: str) -> int:
             tcfg=tcfg,
             custom_welcome=custom_welcome,
             proxy_url=opts.proxy_url,
+            debug=opts.debug,
         )
     callm(pb, opts.action)

@@ -10,7 +10,13 @@ import typing
 from .exceptions import *
 from .media import MEDIA
 from .pastas import PASTAS
-from .util import get_timestamp_s, jdump, log_t_by_sname, surl_prefix
+from .util import (
+    get_timestamp_s,
+    jdump,
+    get_tweet_text,
+    log_t_by_sname,
+    surl_prefix,
+)
 
 
 class PseudBot:
@@ -24,7 +30,9 @@ class PseudBot:
         target_screen_name: str = None,
         proxy_url: str = None,
         quiet: bool = False,
+        debug: bool = False,
     ):
+        self.debug = debug
         tauth = t.OAuthHandler(tcfg["consumer"], tcfg["consumer_secret"])
         tauth.set_access_token(tcfg["tok"], tcfg["tok_secret"])
 
@@ -76,15 +84,6 @@ class PseudBot:
     def _log_tweet(self, msg, tstat) -> None:
         print('[TWEET]: "{}" ({})'.format(msg, self.url_prefix + str(tstat.id)))
 
-    def _log_tweet_by_sname(self, tweet):
-        print(
-            '[@{}]: "{}" ({})'.format(
-                tweet.user.screen_name,
-                tweet.text,
-                surl_prefix(tweet.user.screen_name) + str(tweet.id),
-            )
-        )
-
     def _check_sname_exists(self):
         if self.target_screen_name is None:
             raise PseudBotNoTargetScreenName
@@ -103,6 +102,7 @@ class PseudBot:
             self.tapi.user_timeline,
             screen_name=self.target_screen_name,
             since_id=1,
+            tweet_mode="extended",
         ).items():
             log_t_by_sname(tweet)
             tweets_j.append(tweet._json)
@@ -122,7 +122,7 @@ class PseudBot:
         """
         Get and dump recent tweets from your Pseudbot account's home timeline.
         """
-        home_tl = self.tapi.home_timeline()
+        home_tl = self.tapi.home_timeline(tweet_mode="extended")
         jsons = []
         for tweet in home_tl:
             jsons.append(tweet._json)
@@ -211,7 +211,9 @@ class PseudBot:
 
         tweets_j = []
         for tweet in t.Cursor(
-            self.tapi.mentions_timeline, since_id=start_id
+            self.tapi.mentions_timeline,
+            since_id=start_id,
+            tweet_mode="extended",
         ).items():
             if tweet.user.screen_name == self.screen_name:
                 continue
@@ -233,7 +235,9 @@ class PseudBot:
         Dump the JSON data dictionary of a specific tweet.
         If called from the CLI, requires ``-i`` to be set.
         """
-        tweets = self.tapi.lookup_statuses([self.last_id])
+        tweets = self.tapi.lookup_statuses(
+            [self.last_id], tweet_mode="extended"
+        )
         jtweets = []
         for tweet in tweets:
             log_t_by_sname(tweet)
@@ -251,9 +255,11 @@ class PseudBot:
             pasta = random.choice(PASTAS)
 
         print("[INFO]: Replying to {}...".format(self.last_id))
-        tweets = self.tapi.lookup_statuses([self.last_id])
+        tweets = self.tapi.lookup_statuses(
+            [self.last_id], tweet_mode="extended"
+        )
         for tweet in tweets:
-            self._send_pasta_chain(tweet)
+            self._parse_mention(tweet)
 
     def _get_reply_parent(self, tweet) -> (int, str):
         if tweet.in_reply_to_screen_name is not None:
@@ -285,8 +291,16 @@ class PseudBot:
         """
         (parent_id, parent_screen_name) = self._get_reply_parent(tweet)
 
-        for command_string in tweet.text.split("|"):
+        text = get_tweet_text(tweet)
+
+        for command_string in text.split("|"):
             words = re.split(r'[\s.;():"]+', command_string)
+            if len(words[-1]) < 1:
+                words.pop()
+
+            if self.debug is True:
+                print(words)
+
             media = []
             do_pasta = True
 
@@ -338,7 +352,9 @@ class PseudBot:
         copypasta chain.
         """
         for tweet in t.Cursor(
-            self.tapi.mentions_timeline, since_id=self.last_id
+            self.tapi.mentions_timeline,
+            since_id=self.last_id,
+            tweet_mode="extended",
         ).items():
             if tweet.user.screen_name == self.screen_name:
                 continue
