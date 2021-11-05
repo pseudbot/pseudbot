@@ -3,7 +3,7 @@ import json as j
 from sys import stderr
 import typing
 
-from .bot import PseudBot
+from .tweet_bot import PseudBot
 from .util import get_timestamp_s
 
 

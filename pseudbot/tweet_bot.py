@@ -283,39 +283,42 @@ class PseudBot:
         """
         Parse commands in tweet and do something
         """
-        words = re.split(r'[\s.;\-():"]+', tweet.text)
-        media = []
-        do_pasta = True
-
-        stupid_emoji = "🖼" + b"\xef\xb8\x8f".decode()
-        if stupid_emoji in words or "🖼" in words:
-            for i in range(len(words)):
-                if words[i] in ("🖼", stupid_emoji):
-                    try:
-                        media_category = words[i + 1]
-                        i += 1
-                    except IndexError:
-                        do_pasta = False
-                        break
-
-                    if media_category in MEDIA:
-                        media.append(random.choice(MEDIA[media_category]))
-
-            if len(media) == 0:
-                media = None
-
         (parent_id, parent_screen_name) = self._get_reply_parent(tweet)
 
-        if do_pasta is True:
-            pasta = self._make_pasta_chain(parent_screen_name)
-            self._tweet_pasta(parent_id, pasta, media)
-        elif len(media) > 0:
-            self._tweet_media(parent_id, parent_screen_name, media)
-        else:
-            print(
-                '[WARN]: Unable to parse tweet: "{}"'.format(tweet.text),
-                file=stderr,
-            )
+        for command_string in tweet.text.split("|"):
+            words = re.split(r'[\s.;():"]+', command_string)
+            media = []
+            do_pasta = True
+
+            stupid_emoji = "🖼" + b"\xef\xb8\x8f".decode()
+            if stupid_emoji in words or "🖼" in words:
+                for i in range(len(words)):
+                    if words[i] in ("🖼", stupid_emoji):
+                        try:
+                            media_category = words[i + 1]
+                            i += 1
+                        except IndexError:
+                            do_pasta = False
+                            break
+
+                        if media_category in MEDIA:
+                            media.append(random.choice(MEDIA[media_category]))
+
+                if len(media) == 0:
+                    do_pasta = True
+
+            if do_pasta is True:
+                pasta = self._make_pasta_chain(parent_screen_name)
+                self._tweet_pasta(parent_id, pasta, media)
+            elif len(media) > 0:
+                self._tweet_media(parent_id, parent_screen_name, media)
+            else:
+                print(
+                    '[WARN]: Unable to parse tweet segment: "{}"'.format(
+                        command_string
+                    ),
+                    file=stderr,
+                )
 
     def _make_pasta_chain(self, parent_screen_name: str) -> [str]:
         """
