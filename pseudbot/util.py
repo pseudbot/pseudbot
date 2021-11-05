@@ -31,11 +31,20 @@ def jdump(itms, echo: bool = False, extra_tag: str = None):
     df.close()
 
 
+def get_tweet_text(tweet):
+    if tweet.retweeted is True:
+        text = tweet.retweeted_status.full_text
+    else:
+        text = tweet.full_text
+
+    return text
+
+
 def log_t_by_sname(tweet):
     print(
         '[@{}]: "{}" ({})'.format(
             tweet.user.screen_name,
-            tweet.text,
+            get_tweet_text(tweet),
             surl_prefix(tweet.user.screen_name) + str(tweet.id),
         )
     )
