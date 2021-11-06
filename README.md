@@ -61,11 +61,13 @@ Create a file named `pseud.json` with your editor and paste in the API keys you
 just created on Twitter's developer page in the previous step:
 ```json
 {
-  "consumer": "key goes here",
-  "consumer_secret": "key goes here",
-  "bearer_token": "key goes here",
-  "tok": "key goes here",
-  "tok_secret": "key goes here"
+  "twitter": {
+    "consumer": "key goes here",
+    "consumer_secret": "key goes here",
+    "bearer_token": "key goes here",
+    "tok": "key goes here",
+    "tok_secret": "key goes here"
+  }
 }
 ```
 
