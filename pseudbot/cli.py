@@ -69,7 +69,7 @@ def main(args: [str], name: str) -> int:
     custom_welcome = get_timestamp_s() + ': Running method: "{}"'.format(
         opts.action
     )
-    tcfg = j.loads(opts.cfg_json.read())
+    tcfg = j.loads(opts.cfg_json.read())["twitter"]
 
     if opts.action == "run_bot":
         pb = PseudBot(tcfg=tcfg, proxy_url=opts.proxy_url, debug=opts.debug)
