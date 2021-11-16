@@ -13,3 +13,7 @@ def get_pastas() -> list:
 
 
 PASTAS = get_pastas()
+
+
+def concat_pasta(sep: str = " "):
+    return sep.join(random.choice(PASTAS))

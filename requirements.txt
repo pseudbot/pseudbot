@@ -1,3 +1,4 @@
 filetype
+Pillow
 tweepy
 requests[socks]

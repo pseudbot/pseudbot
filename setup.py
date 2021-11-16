@@ -17,7 +17,7 @@ setup(
     author="Andrew Rogers",
     description="Rick and Morty copypasta bot",
     author_email="tuxlovesyou@gmail.com",
-    packages=["pseudbot"],
+    packages=["pseudbot", "pseudbot.meme"],
     include_package_data=True,
     scripts=scripts,
 )

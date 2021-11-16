@@ -1,9 +1,18 @@
 import inspect
 import json as j
 from os.path import basename
+from PIL import Image, ImageDraw
+import re
 import requests
-from time import time
+from textwrap import shorten, wrap
+from time import localtime, strftime, time
 import typing
+
+
+def get_iphone_time_s() -> str:
+    ltime = localtime()
+    hour = re.sub("^0", "  ", strftime("%I", ltime))
+    return hour + ":" + strftime("%M", ltime)
 
 
 def get_timestamp_s() -> str:
@@ -50,6 +59,28 @@ def log_t_by_sname(tweet):
     )
 
 
+def _text_wrap(text: str, width: int, height: int = None):
+    lines = wrap(text, width=width)
+    if height is not None:
+        if len(lines) > height:
+            lines[height - 1] = shorten(
+                lines[height - 1] + " " + lines[height],
+                width=width,
+                placeholder="...",
+            )
+            lines = lines[:height]
+
+    return lines
+
+
+def styled_wrap(text: str, wrap: tuple):
+    return "\n".join(_text_wrap(text, wrap[0], wrap[1]))
+
+
+def text_wrap(text: str, width: int, height: int = None):
+    return "\n".join(_text_wrap(text, width, height))
+
+
 def download_tweet_media(tweet: dict):
     if "extended_entities" in tweet:
         try:
@@ -66,3 +97,52 @@ def download_tweet_media(tweet: dict):
                 with open(filename, mode="wb") as f:
                     for chunk in r.iter_content(1024):
                         f.write(chunk)
+
+
+def square_crop(image: Image) -> Image:
+    (width, height) = image.size
+    if width != height:
+        new_image = None
+        if width > height:
+            return image.crop((0, 0, height, height))
+        else:
+            return image.crop((0, 0, width, width))
+    else:
+        return image
+
+
+def alpha_comp_prep(
+    image: Image, size: tuple, offset: tuple = (0, 0), scale: tuple = None
+):
+    canvas = Image.new("RGBA", size, (0, 0, 0, 0))
+
+    if scale is not None:
+        image = image.resize(size=scale, resample=Image.BICUBIC)
+
+    canvas.paste(image, box=offset)
+    return canvas
+
+
+def circle_mask(size: int):
+    ci = Image.new("L", (size, size), 0)
+
+    d = ImageDraw.Draw(ci)
+    d.ellipse(xy=(0, 0, size, size), fill=255)
+
+    return ci
+
+
+def circle_pfp(pfp: Image, size: int = None) -> Image:
+    pfp = square_crop(pfp)
+
+    if size is not None:
+        pfp = pfp.resize((size, size), resample=Image.BICUBIC)
+
+    (width, height) = pfp.size
+    pfp.putalpha(circle_mask(width))
+
+    return pfp
+
+
+def tuple_add(a: tuple, b: tuple) -> tuple:
+    return tuple(map(sum, zip(a, b)))
