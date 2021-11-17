@@ -1,5 +1,4 @@
 import random
-import re
 from sys import stderr
 from textwrap import indent
 from time import sleep, time
@@ -7,8 +6,8 @@ import tweepy as t
 from tweepy.errors import Forbidden, TooManyRequests
 import typing
 
+from .command import Command, mk_commands
 from .exceptions import *
-from .media import MEDIA
 from .pastas import PASTAS
 from .util import (
     get_timestamp_s,
@@ -291,45 +290,16 @@ class PseudBot:
         """
         (parent_id, parent_screen_name) = self._get_reply_parent(tweet)
 
-        text = get_tweet_text(tweet)
-
-        for command_string in text.split("|"):
-            words = re.split(r'[\s.;():"]+', command_string)
-            if len(words[-1]) < 1:
-                words.pop()
-
-            if self.debug is True:
-                print(words)
-
-            media = []
-            do_pasta = True
-
-            stupid_emoji = "🖼" + b"\xef\xb8\x8f".decode()
-            if stupid_emoji in words or "🖼" in words:
-                for i in range(len(words)):
-                    if words[i] in ("🖼", stupid_emoji):
-                        try:
-                            media_category = words[i + 1]
-                            i += 1
-                        except IndexError:
-                            do_pasta = False
-                            break
-
-                        if media_category in MEDIA:
-                            media.append(random.choice(MEDIA[media_category]))
-
-                if len(media) == 0:
-                    do_pasta = True
-
-            if do_pasta is True:
+        for command in mk_commands(get_tweet_text(tweet)):
+            if command.pasta is True:
                 pasta = self._make_pasta_chain(parent_screen_name)
-                self._tweet_pasta(parent_id, pasta, media)
-            elif len(media) > 0:
-                self._tweet_media(parent_id, parent_screen_name, media)
+                self._tweet_pasta(parent_id, pasta, command.media)
+            elif len(command.media) > 0:
+                self._tweet_media(parent_id, parent_screen_name, command.media)
             else:
                 print(
                     '[WARN]: Unable to parse tweet segment: "{}"'.format(
-                        command_string
+                        command.text
                     ),
                     file=stderr,
                 )
