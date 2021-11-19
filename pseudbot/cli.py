@@ -72,7 +72,12 @@ def main(args: [str], name: str) -> int:
     tcfg = j.loads(opts.cfg_json.read())["twitter"]
 
     if opts.action == "run_bot":
-        pb = PseudBot(tcfg=tcfg, proxy_url=opts.proxy_url, debug=opts.debug)
+        pb = PseudBot(
+            tcfg=tcfg,
+            last_id=opts.reply_to_id,
+            proxy_url=opts.proxy_url,
+            debug=opts.debug,
+        )
     elif opts.action == "list_actions":
         pb = PseudBot(tcfg=tcfg, quiet=True, debug=opts.debug)
     elif opts.action in ("pasta_tweet", "dump_tweet"):
@@ -96,6 +101,7 @@ def main(args: [str], name: str) -> int:
             pb = PseudBot(
                 tcfg=tcfg,
                 custom_welcome=custom_welcome,
+                last_id=opts.reply_to_id,
                 target_screen_name=opts.screen_name,
                 proxy_url=opts.proxy_url,
                 debug=opts.debug,
@@ -110,6 +116,7 @@ def main(args: [str], name: str) -> int:
         pb = PseudBot(
             tcfg=tcfg,
             custom_welcome=custom_welcome,
+            last_id=opts.reply_to_id,
             proxy_url=opts.proxy_url,
             debug=opts.debug,
         )
