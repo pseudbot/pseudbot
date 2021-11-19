@@ -1,6 +1,6 @@
 import random
 from sys import stderr
-from textwrap import indent
+from textwrap import wrap
 from time import sleep, time
 import tweepy as t
 from tweepy.errors import Forbidden, TooManyRequests
@@ -26,12 +26,14 @@ class PseudBot:
         tcfg: dict,
         custom_welcome: str = None,
         last_id: int = None,
+        reply_all: bool = True,
         target_screen_name: str = None,
         proxy_url: str = None,
         quiet: bool = False,
         debug: bool = False,
     ):
         self.debug = debug
+        self.reply_all = True
         tauth = t.OAuthHandler(tcfg["consumer"], tcfg["consumer_secret"])
         tauth.set_access_token(tcfg["tok"], tcfg["tok_secret"])
 
@@ -171,7 +173,6 @@ class PseudBot:
         except Forbidden:
             return _stat
         if len(pasta) > 0:
-            pasta[0] = "@" + self.last_stat.user.screen_name + " " + pasta[0]
             sleep(2)
             return self._tweet_pasta(self.last_stat.id, pasta, media)
         else:
@@ -260,42 +261,92 @@ class PseudBot:
         for tweet in tweets:
             self._parse_mention(tweet)
 
-    def _get_reply_parent(self, tweet) -> (int, str):
+    def get_tweet_parents(self):
+        """
+        Print the parent tuple list (parent_id, reply_to_screen_name).
+
+        Works best when invoked with -i on a tweet status ID.
+        """
+        print(
+            self._get_reply_parents(
+                self.tapi.lookup_statuses(
+                    [self.last_id], tweet_mode="extended"
+                )[0]
+            )
+        )
+
+    def _get_reply_parents(self, tweet) -> [(int, str)]:
+        """
+        Builds and returns the parent tuple list from a starting tweet:
+            (parent_id, reply_to_screen_name)
+        """
         if tweet.in_reply_to_screen_name is not None:
             if tweet.in_reply_to_screen_name != self.screen_name:
                 parent_name = tweet.in_reply_to_screen_name
             else:
                 parent_name = None
                 print(
-                    "[INFO]: Replying to {}'s mention ".format(
+                    "[INFO]: Replying to {}'s mention directly...".format(
                         tweet.user.screen_name
                     )
-                    + "instead of replying to myself..."
                 )
         else:
             parent_name = None
 
+        parents = []
         if tweet.in_reply_to_status_id is not None and parent_name is not None:
             reply_to_screen_name = tweet.in_reply_to_screen_name
             parent_id = tweet.in_reply_to_status_id
+            parents = parents + self._get_reply_parents(
+                tweet=self.tapi.lookup_statuses(
+                        [tweet.in_reply_to_status_id], tweet_mode="extended"
+                    )[0]
+                )
         else:
             reply_to_screen_name = tweet.user.screen_name
             parent_id = tweet.id
 
-        return (parent_id, reply_to_screen_name)
+        parents = [(parent_id, reply_to_screen_name)] + parents
 
-    def _parse_mention(self, tweet):
+        return parents
+
+    def test_parser(self):
+        """
+        Run the command parser in a dry run (e.g. without sending any tweets) on
+        a specific tweet.
+
+        Works best when invoked with -i on a tweet status ID.
+        """
+        self._parse_mention(
+            self.tapi.lookup_statuses([self.last_id], tweet_mode="extended")[0],
+            wet_run=False,
+        )
+
+    def _parse_mention(self, tweet, wet_run: bool = True):
         """
         Parse commands in tweet and do something
         """
-        (parent_id, parent_screen_name) = self._get_reply_parent(tweet)
+        # Each parent in the list is a (parent_id, parent_screen_name) tuple.
+        parents = self._get_reply_parents(tweet)
 
-        for command in mk_commands(get_tweet_text(tweet)):
-            if command.pasta is True:
-                pasta = self._make_pasta_chain(parent_screen_name)
-                self._tweet_pasta(parent_id, pasta, command.media)
+        drybug = False if wet_run is True else True
+
+        for command in mk_commands(get_tweet_text(tweet), debug=drybug):
+            if len(command.pasta) > 0:
+                pasta = self._make_pasta_chain(parents, command)
+                if wet_run is True:
+                    self._tweet_pasta(parents[0][0], pasta, command.media)
+                else:
+                    print("[DRY]: pasta: {}".format(pasta))
+                    print("[DRY]: Such wow, very tweet!")
             elif len(command.media) > 0:
-                self._tweet_media(parent_id, parent_screen_name, command.media)
+                if wet_run is True:
+                    self._tweet_media(
+                        parents[0][0], parent_screen_name, command.media
+                    )
+                else:
+                    # TODO: show media in dry mode?
+                    print("[DRY]: Such wow, very media!")
             else:
                 print(
                     '[WARN]: Unable to parse tweet segment: "{}"'.format(
@@ -304,15 +355,30 @@ class PseudBot:
                     file=stderr,
                 )
 
-    def _make_pasta_chain(self, parent_screen_name: str) -> [str]:
+    def _make_pasta_chain(self, parents: [(int, str)], cmd: Command) -> [str]:
         """
-        Send a copypasta chain.
+        Make a text reply chain.
         """
-        pasta = []
-        while len(pasta) < 1:
-            pasta = random.choice(PASTAS)
 
-        pasta[0] = "@" + parent_screen_name + " " + pasta[0]
+        parent_screen_names = " ".join(list(map(lambda p: "@" + p[1], parents)))
+        pasta = []
+
+        in_pasta = wrap(parent_screen_names + " " + cmd.pasta, width=280)
+        pasta.append(in_pasta.pop(0))
+        while len(in_pasta) > 0:
+            tmp_pasta = wrap(
+                "@" + self.screen_name + " " + parent_screen_names + " " + in_pasta.pop(0),
+                width=280,
+            )
+            pasta.append(tmp_pasta.pop(0))
+            if len(in_pasta) > 1:
+                in_pasta = [" ".join(tmp_pasta) + in_pasta[0]] + in_pasta[1:]
+            else:
+                try:
+                    in_pasta = [" ".join(tmp_pasta) + in_pasta[0]]
+                except IndexError:
+                    if self.debug is True:
+                        print("[DEBUG]: in_pasta empty!")
 
         return pasta
 

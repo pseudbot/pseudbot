@@ -6,14 +6,12 @@ def get_pastas() -> list:
     pastas = pfile.read().split("\n\n")
     pfile.close()
 
-    for n in range(len(pastas)):
-        pastas[n] = pastas[n].split("\n")
-
     return pastas
 
 
 PASTAS = get_pastas()
 
 
+# TODO: make random picker only, rename
 def concat_pasta(sep: str = " "):
-    return sep.join(random.choice(PASTAS))
+    return sep.join([random.choice(PASTAS)])
