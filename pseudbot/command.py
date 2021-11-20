@@ -6,25 +6,25 @@ from .pastas import PASTAS
 
 
 class Command:
-    pasta = ""
-    media = []
-    target = None
-
-    error = None
-    reason = None
-
     def __init__(self, text: str, debug: bool = False):
         self.text = re.sub(r"[\ufe0f]", "", text, re.UNICODE)
         self.debug = debug
+
+        self.pasta = ""
+        self.media = []
+        self.target = None
+        self.error = False
+        self.reasons = []
+
         self.parse()
 
     def parse(self):
-        words = re.split(r'[\s.;():"]+', self.text)
+        words = re.split(r'[\s.;():"]+', self.text, re.UNICODE)
         if len(words[-1]) < 1:
             words.pop()
 
         if self.debug is True:
-            print('[DEBUG]: words: "{}"'.format(words))
+            print('[DEBUG]: [WORDS]: "{}"'.format(words))
 
         lexed = {
             "all": [],
@@ -51,7 +51,7 @@ class Command:
                     self.media.append(random.choice(MEDIA[media_category]))
                 else:
                     self.error = True
-                    self.reason = 'Could not find media category: "{}"'.format(
+                    self.reasons = 'Could not find media category: "{}"'.format(
                         media_category
                     )
             if words[i] == "😲🤳":
@@ -75,7 +75,15 @@ class Command:
 def mk_commands(text: str, debug: bool = False) -> [Command]:
     commands = []
 
-    for command_string in text.split("|"):
+    split_input = text.split("|")
+
+    if debug is True:
+        print("[DEBUG]: split command input: {}".format(split_input))
+
+    for command_string in split_input:
         commands.append(Command(text=command_string, debug=debug))
+        if debug is True:
+            print('[DEBUG]: self.pasta = "{}"'.format(commands[-1].pasta))
+            print("[DEBUG]: self.media = {}".format(commands[-1].media))
 
     return commands

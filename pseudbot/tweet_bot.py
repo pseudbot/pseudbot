@@ -131,12 +131,14 @@ class PseudBot:
         jdump(jsons, extra_tag=self.screen_name)
 
     def _tweet_media(
-        self, id_reply_to: int, parent_screen_name: str, media: [str] = []
+        self, id_reply_to: int, parent_screen_names: str, media: [str] = []
     ):
         _stat = self.last_stat
+        if self.debug is True:
+            print("[DEBUG]: _tweet_media's media: {}".format(media))
         try:
             self.last_stat = self.tapi.update_status_with_media(
-                "@" + parent_screen_name,
+                parent_screen_names,
                 in_reply_to_status_id=id_reply_to,
                 filename=media.pop(0),
             )
@@ -145,8 +147,18 @@ class PseudBot:
 
         if len(media) > 0:
             sleep(2)
+            parent_screen_names = (
+                parent_screen_names
+                if parent_screen_names.startswith(
+                    "@" + self.last_stat.user.screen_name
+                )
+                else "@"
+                + self.last_stat.user.screen_name
+                + " "
+                + parent_screen_names
+            )
             return self._tweet_media(
-                self.last_stat.id, self.last_stat.user.screen_name, media
+                self.last_stat.id, parent_screen_names, media
             )
         else:
             return self.last_stat
@@ -230,14 +242,15 @@ class PseudBot:
 
         jdump(tweets_j)
 
-    def dump_tweet(self):
+    def dump_tweet(self, status_id: int = None):
         """
         Dump the JSON data dictionary of a specific tweet.
         If called from the CLI, requires ``-i`` to be set.
         """
-        tweets = self.tapi.lookup_statuses(
-            [self.last_id], tweet_mode="extended"
-        )
+        if status_id is None:
+            status_id = self.last_id
+
+        tweets = self.tapi.lookup_statuses([status_id], tweet_mode="extended")
         jtweets = []
         for tweet in tweets:
             log_t_by_sname(tweet)
@@ -247,12 +260,29 @@ class PseudBot:
 
     def pasta_tweet(self):
         """
-        Insert a copy pasta in a Tweet chain manually starting from a specific
+        Insert a copy pasta in a Tweet chain manually under a specific
         tweet ID.  Requires ``-i`` to be set if calling from the CLI.
         """
-        pasta = []
+        tweet = self.tapi.lookup_statuses(
+            [self.last_id], tweet_mode="extended"
+        )[0]
+        parents = self._get_reply_parents(tweet)
+        parent_screen_names = " ".join(list(map(lambda p: "@" + p[1], parents)))
+
+        pasta = ""
         while len(pasta) < 1:
             pasta = random.choice(PASTAS)
+
+        noodles = self._make_pasta_chain(parent_screen_names, pasta)
+        self._tweet_pasta(self.last_id, noodles)
+
+        print("[INFO]: Inserting pasta under {}...".format(self.last_id))
+
+    def run_cmd_tweet(self):
+        """
+        Parse a specific tweet for a command and post specified pasta(s).
+        Requires ``-i`` to be set if calling from the CLI.
+        """
 
         print("[INFO]: Replying to {}...".format(self.last_id))
         tweets = self.tapi.lookup_statuses(
@@ -265,7 +295,7 @@ class PseudBot:
         """
         Print the parent tuple list (parent_id, reply_to_screen_name).
 
-        Works best when invoked with -i on a tweet status ID.
+        Requires ``-i`` to be set if calling from the CLI.
         """
         print(
             self._get_reply_parents(
@@ -299,9 +329,9 @@ class PseudBot:
             parent_id = tweet.in_reply_to_status_id
             parents = parents + self._get_reply_parents(
                 tweet=self.tapi.lookup_statuses(
-                        [tweet.in_reply_to_status_id], tweet_mode="extended"
-                    )[0]
-                )
+                    [tweet.in_reply_to_status_id], tweet_mode="extended"
+                )[0]
+            )
         else:
             reply_to_screen_name = tweet.user.screen_name
             parent_id = tweet.id
@@ -315,7 +345,7 @@ class PseudBot:
         Run the command parser in a dry run (e.g. without sending any tweets) on
         a specific tweet.
 
-        Works best when invoked with -i on a tweet status ID.
+        Requires ``-i`` to be set if calling from the CLI.
         """
         self._parse_mention(
             self.tapi.lookup_statuses([self.last_id], tweet_mode="extended")[0],
@@ -328,12 +358,21 @@ class PseudBot:
         """
         # Each parent in the list is a (parent_id, parent_screen_name) tuple.
         parents = self._get_reply_parents(tweet)
+        parent_screen_names = " ".join(list(map(lambda p: "@" + p[1], parents)))
 
         drybug = False if wet_run is True else True
+        if self.debug is True:
+            jdump(tweet._json, extra_tag="{}.debug".format(tweet.id))
+            drybug = True
 
-        for command in mk_commands(get_tweet_text(tweet), debug=drybug):
+        commands = mk_commands(get_tweet_text(tweet), debug=drybug)
+        for ci in range(len(commands)):
+            command = commands[ci]
+            pasta = []
             if len(command.pasta) > 0:
-                pasta = self._make_pasta_chain(parents, command)
+                pasta = self._make_pasta_chain(
+                    parent_screen_names, command.pasta
+                )
                 if wet_run is True:
                     self._tweet_pasta(parents[0][0], pasta, command.media)
                 else:
@@ -341,9 +380,8 @@ class PseudBot:
                     print("[DRY]: Such wow, very tweet!")
             elif len(command.media) > 0:
                 if wet_run is True:
-                    self._tweet_media(
-                        parents[0][0], parent_screen_name, command.media
-                    )
+                    media = command.media
+                    self._tweet_media(parents[0][0], parent_screen_names, media)
                 else:
                     # TODO: show media in dry mode?
                     print("[DRY]: Such wow, very media!")
@@ -354,20 +392,32 @@ class PseudBot:
                     ),
                     file=stderr,
                 )
+                if self.debug is True:
+                    print(
+                        "[DEBUG]: error parsing text from "
+                        + "commands[{}].  ".format(ci)
+                        + "text: {}".format(
+                            list(map(lambda c: c.text, commands))
+                        )
+                    )
+                self.dump_tweet(status_id=tweet.id)
 
-    def _make_pasta_chain(self, parents: [(int, str)], cmd: Command) -> [str]:
+    def _make_pasta_chain(self, parent_screen_names: str, in_txt: str) -> [str]:
         """
         Make a text reply chain.
         """
-
-        parent_screen_names = " ".join(list(map(lambda p: "@" + p[1], parents)))
         pasta = []
 
-        in_pasta = wrap(parent_screen_names + " " + cmd.pasta, width=280)
+        in_pasta = wrap(parent_screen_names + " " + in_txt, width=280)
         pasta.append(in_pasta.pop(0))
         while len(in_pasta) > 0:
             tmp_pasta = wrap(
-                "@" + self.screen_name + " " + parent_screen_names + " " + in_pasta.pop(0),
+                "@"
+                + self.screen_name
+                + " "
+                + parent_screen_names
+                + " "
+                + in_pasta.pop(0),
                 width=280,
             )
             pasta.append(tmp_pasta.pop(0))

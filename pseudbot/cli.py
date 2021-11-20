@@ -80,7 +80,13 @@ def main(args: [str], name: str) -> int:
         )
     elif opts.action == "list_actions":
         pb = PseudBot(tcfg=tcfg, quiet=True, debug=opts.debug)
-    elif opts.action in ("pasta_tweet", "dump_tweet"):
+    elif opts.action in (
+        "pasta_tweet",
+        "dump_tweet",
+        "run_cmd_tweet",
+        "get_tweet_parents",
+        "test_parser",
+    ):
         if opts.reply_to_id is not None:
             pb = PseudBot(
                 tcfg=tcfg,
